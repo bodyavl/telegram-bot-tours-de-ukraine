@@ -26,6 +26,7 @@ main_menu.add(
 # --- Команди ---
 @bot.message_handler(commands=['start'])
 def start(message):
+    print("✅ /start received")
     bot.send_message(message.chat.id, messages.WELCOME_TEXT, reply_markup=main_menu)
 
 @bot.message_handler(commands=['help'])
@@ -106,6 +107,7 @@ def default(message):
 # --- Webhook endpoint ---
 @app.route(f"/{API_TOKEN}", methods=["POST"])
 def webhook():
+    print("UPDATE:", json_str)
     json_str = request.get_data().decode("utf-8")
     update = telebot.types.Update.de_json(json_str)
     bot.process_new_updates([update])
