@@ -1,8 +1,9 @@
 # bot.py
 
 import os
-from flask import Flask, request
 import telebot
+from flask import Flask, request
+from telebot import types
 
 from config import API_TOKEN
 from catalog import get_catalog, get_item_by_id
@@ -14,7 +15,6 @@ bot = telebot.TeleBot(API_TOKEN)
 app = Flask(__name__)
 
 # --- Reply Keyboard ---
-from telebot import types
 main_menu = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
 main_menu.add(
     types.KeyboardButton("📚 Каталог турів"),
@@ -23,7 +23,7 @@ main_menu.add(
     types.KeyboardButton("✍️ Залишити відгук")
 )
 
-# --- Базові хендлери ---
+# --- Команди ---
 @bot.message_handler(commands=['start'])
 def start(message):
     bot.send_message(message.chat.id, messages.WELCOME_TEXT, reply_markup=main_menu)
@@ -103,20 +103,26 @@ def default(message):
     else:
         bot.send_message(message.chat.id, messages.UNKNOWN_COMMAND)
 
-# --- WEBHOOK HANDLING ---
+# --- Webhook endpoint ---
 @app.route(f"/{API_TOKEN}", methods=["POST"])
 def webhook():
-    json_string = request.get_data().decode("utf-8")
-    update = telebot.types.Update.de_json(json_string)
+    json_str = request.get_data().decode("utf-8")
+    update = telebot.types.Update.de_json(json_str)
     bot.process_new_updates([update])
     return "ok", 200
 
+# --- Ping route ---
 @app.route("/", methods=["GET"])
 def index():
-    return "Bot is running!", 200
+    return "Tours de Ukraine bot is running!", 200
 
-# --- Встановлення webhook ---
+# --- Webhook setter ---
 if __name__ == "__main__":
+    import logging
+    logging.basicConfig(level=logging.DEBUG)
+
     bot.remove_webhook()
-    bot.set_webhook(url=f"https://{os.getenv('RENDER_EXTERNAL_HOSTNAME')}/{API_TOKEN}")
+    webhook_url = f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME')}/{API_TOKEN}"
+    print("🔗 Setting webhook:", webhook_url)
+    bot.set_webhook(url=webhook_url)
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
