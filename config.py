@@ -1,4 +1,5 @@
-API_TOKEN = '8171162683:AAGpvLkZzfSwFArh75avQuCLtfx5Dql8Fa8'
+import os
+API_TOKEN = os.getenv("API_TOKEN")
 
 ADMIN_IDS = [123456789]
 
