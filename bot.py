@@ -1,19 +1,20 @@
 # bot.py
 
+import os
+from flask import Flask, request
 import telebot
-from telebot import types
 
 from config import API_TOKEN
 from catalog import get_catalog, get_item_by_id
 from orders import handle_order
-from admin import (
-    handle_admin, handle_add_item, handle_remove_item, handle_orders
-)
+from admin import handle_admin, handle_add_item, handle_remove_item, handle_orders
 import messages
 
 bot = telebot.TeleBot(API_TOKEN)
+app = Flask(__name__)
 
 # --- Reply Keyboard ---
+from telebot import types
 main_menu = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
 main_menu.add(
     types.KeyboardButton("📚 Каталог турів"),
@@ -22,50 +23,31 @@ main_menu.add(
     types.KeyboardButton("✍️ Залишити відгук")
 )
 
-
-
-
-# --- /start ---
+# --- Базові хендлери ---
 @bot.message_handler(commands=['start'])
 def start(message):
     bot.send_message(message.chat.id, messages.WELCOME_TEXT, reply_markup=main_menu)
 
-# --- /help ---
 @bot.message_handler(commands=['help'])
 def help_cmd(message):
     bot.send_message(message.chat.id, messages.HELP_TEXT)
 
-# --- /info ---
 @bot.message_handler(commands=['info'])
 def info(message):
     bot.send_message(message.chat.id, messages.INFO_TEXT)
 
-# --- /catalog ---
 @bot.message_handler(commands=['catalog'])
 def catalog(message):
     catalog = get_catalog()
     for item in catalog:
-        btn = types.InlineKeyboardMarkup()
-        btn.add(types.InlineKeyboardButton("🔍 Деталі", callback_data=f"detail_{item['id']}"))
-        btn.add(types.InlineKeyboardButton("🛒 Замовити", callback_data=f"order_{item['id']}"))
+        btn = types.InlineKeyboardMarkup(row_width=2)
+        btn.add(
+            types.InlineKeyboardButton("🔍 Деталі", callback_data=f"detail_{item['id']}"),
+            types.InlineKeyboardButton("🛒 Замовити", callback_data=f"order_{item['id']}")
+        )
         msg = f"📌 {item['name']}\n💸 {item['price']} грн"
         bot.send_message(message.chat.id, msg, reply_markup=btn)
 
-@bot.message_handler(func=lambda message: True)
-def handle_text(message):
-    text = message.text.lower()
-    if "каталог" in text:
-        catalog(message)
-    elif "інформація" in text or "про бота" in text:
-        info(message)
-    elif "допомога" in text:
-        help_cmd(message)
-    elif "відгук" in text:
-        feedback(message)
-    else:
-        bot.send_message(message.chat.id, messages.UNKNOWN_COMMAND)
-
-# --- Inline кнопки ---
 @bot.callback_query_handler(func=lambda call: True)
 def handle_callback(call):
     if call.data.startswith("detail_"):
@@ -77,8 +59,9 @@ def handle_callback(call):
     elif call.data.startswith("order_"):
         item_id = int(call.data.split("_")[1])
         handle_order(bot, call.message, call.from_user, item_id)
+    elif call.data == "catalog":
+        catalog(call.message)
 
-# --- /admin ---
 @bot.message_handler(commands=['admin'])
 def admin(message):
     handle_admin(bot, message)
@@ -95,7 +78,6 @@ def remove_item(message):
 def orders(message):
     handle_orders(bot, message)
 
-# --- /feedback ---
 @bot.message_handler(commands=['feedback'])
 def feedback(message):
     bot.send_message(message.chat.id, "✍️ Напишіть свій відгук:")
@@ -107,17 +89,34 @@ def process_feedback(message):
         bot.send_message(admin_id, f"📝 Новий відгук від @{message.from_user.username}:\n{message.text}")
     bot.send_message(message.chat.id, messages.FEEDBACK_THANKS)
 
-# --- Інші повідомлення ---
-@bot.message_handler(func=lambda m: True)
+@bot.message_handler(func=lambda message: True)
 def default(message):
     text = message.text.lower()
-    if "товари" in text or "каталог" in text:
+    if "каталог" in text:
         catalog(message)
-    elif "замовлення" in text:
-        bot.send_message(message.chat.id, "📦 Щоб замовити товар, відкрийте /catalog")
+    elif "інформація" in text:
+        info(message)
+    elif "допомога" in text:
+        help_cmd(message)
+    elif "відгук" in text:
+        feedback(message)
     else:
         bot.send_message(message.chat.id, messages.UNKNOWN_COMMAND)
 
-# --- Запуск ---
-if __name__ == '__main__':
-    bot.polling(none_stop=True)
+# --- WEBHOOK HANDLING ---
+@app.route(f"/{API_TOKEN}", methods=["POST"])
+def webhook():
+    json_string = request.get_data().decode("utf-8")
+    update = telebot.types.Update.de_json(json_string)
+    bot.process_new_updates([update])
+    return "ok", 200
+
+@app.route("/", methods=["GET"])
+def index():
+    return "Bot is running!", 200
+
+# --- Встановлення webhook ---
+if __name__ == "__main__":
+    bot.remove_webhook()
+    bot.set_webhook(url=f"https://{os.getenv('RENDER_EXTERNAL_HOSTNAME')}/{API_TOKEN}")
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
