@@ -107,8 +107,8 @@ def default(message):
 # --- Webhook endpoint ---
 @app.route(f"/{API_TOKEN}", methods=["POST"])
 def webhook():
-    print("UPDATE:", json_str)
     json_str = request.get_data().decode("utf-8")
+    print("UPDATE:", json_str)
     update = telebot.types.Update.de_json(json_str)
     bot.process_new_updates([update])
     return "ok", 200
