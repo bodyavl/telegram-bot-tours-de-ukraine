@@ -106,16 +106,17 @@ def process_feedback(message):
 
 # --- Відповіді на довільні повідомлення ---
 @bot.message_handler(func=lambda message: True)
-def default(message):
-    text = message.text.lower()
-    if "каталог" in text or "товари" in text:
+def handle_buttons(message):
+    text = message.text.strip().lower()
+
+    if "каталог" in text:
         catalog(message)
-    elif "замовлення" in text:
-        order_info(message)
-    elif "привіт" in text or "доброго дня" in text:
-        bot.send_message(message.chat.id, "👋 Вітаю! Чим можу допомогти?")
-    elif "як зробити замовлення" in text:
-        bot.send_message(message.chat.id, "🔽 Просто відкрий /catalog і натисни '🛒 Замовити' під потрібним туром.")
+    elif "інформація" in text or "про бота" in text:
+        info(message)
+    elif "допомога" in text:
+        help_cmd(message)
+    elif "відгук" in text:
+        feedback(message)
     else:
         bot.send_message(message.chat.id, messages.UNKNOWN_COMMAND)
 
