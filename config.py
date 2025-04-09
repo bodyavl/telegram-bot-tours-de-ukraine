@@ -1,0 +1,7 @@
+API_TOKEN = '8171162683:AAGpvLkZzfSwFArh75avQuCLtfx5Dql8Fa8'
+
+ADMIN_IDS = [123456789]
+
+BOT_DATA = {
+    "orders": []
+}
