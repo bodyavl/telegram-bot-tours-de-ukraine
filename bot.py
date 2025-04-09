@@ -11,7 +11,7 @@ from orders import handle_order
 from admin import handle_admin, handle_add_item, handle_remove_item, handle_orders
 import messages
 
-bot = telebot.TeleBot(API_TOKEN)
+bot = telebot.TeleBot(API_TOKEN, threaded=False)
 app = Flask(__name__)
 
 # --- Reply Keyboard ---
