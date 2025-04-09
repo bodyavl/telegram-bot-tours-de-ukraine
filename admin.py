@@ -19,17 +19,27 @@ def handle_add_item(bot, message):
     if not is_admin(message.from_user.id):
         return
     try:
-        _, name, description, price = message.text.split(";", 3)
+        parts = message.text.split(";", 3)
+        if len(parts) != 4:
+            bot.send_message(message.chat.id, "⚠️ Формат: /add_item Назва; Опис; Ціна")
+            return
+
+        _, name, description, price = parts
+        price = float(price.strip())
+        if price <= 0:
+            bot.send_message(message.chat.id, "⚠️ Ціна має бути більшою за 0.")
+            return
+
         item = {
             "id": len(tours) + 1,
             "name": name.strip(),
             "description": description.strip(),
-            "price": float(price.strip())
+            "price": price
         }
         tours.append(item)
         bot.send_message(message.chat.id, "✅ Товар додано.")
     except:
-        bot.send_message(message.chat.id, "⚠️ Формат: /add_item Назва; Опис; Ціна")
+        bot.send_message(message.chat.id, "⚠️ Помилка при додаванні.")
 
 def handle_remove_item(bot, message):
     if not is_admin(message.from_user.id):
@@ -49,4 +59,4 @@ def handle_remove_item(bot, message):
 def handle_orders(bot, message):
     if not is_admin(message.from_user.id):
         return
-    bot.send_message(message.chat.id, "📦 Замовлення наразі не зберігаються в БД.")
+    bot.send_message(message.chat.id, "📦 Замовлення надходять адміністраторам у чат при кожному оформленні.")

@@ -1,20 +1,28 @@
-# bot.py
-
 import os
-import telebot
+import logging
 from flask import Flask, request
+import telebot
 from telebot import types
 
 from config import API_TOKEN
 from catalog import get_catalog, get_item_by_id
 from orders import handle_order
-from admin import handle_admin, handle_add_item, handle_remove_item, handle_orders
+from admin import (
+    handle_admin,
+    handle_add_item,
+    handle_remove_item,
+    handle_orders
+)
 import messages
 
+# --- Логування ---
+logging.basicConfig(level=logging.DEBUG)
+
+# --- Ініціалізація ---
 bot = telebot.TeleBot(API_TOKEN, threaded=False)
 app = Flask(__name__)
 
-# --- Reply Keyboard ---
+# --- Клавіатура ---
 main_menu = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
 main_menu.add(
     types.KeyboardButton("📚 Каталог турів"),
@@ -26,16 +34,15 @@ main_menu.add(
 # --- Команди ---
 @bot.message_handler(commands=['start'])
 def start(message):
-    print("✅ /start received")
-    bot.send_message(message.chat.id, messages.WELCOME_TEXT, reply_markup=main_menu)
+    bot.send_message(message.chat.id, messages.WELCOME_TEXT, parse_mode="Markdown", reply_markup=main_menu)
 
 @bot.message_handler(commands=['help'])
 def help_cmd(message):
-    bot.send_message(message.chat.id, messages.HELP_TEXT)
+    bot.send_message(message.chat.id, messages.HELP_TEXT, parse_mode="Markdown")
 
 @bot.message_handler(commands=['info'])
 def info(message):
-    bot.send_message(message.chat.id, messages.INFO_TEXT)
+    bot.send_message(message.chat.id, messages.INFO_TEXT, parse_mode="Markdown")
 
 @bot.message_handler(commands=['catalog'])
 def catalog(message):
@@ -49,6 +56,11 @@ def catalog(message):
         msg = f"📌 {item['name']}\n💸 {item['price']} грн"
         bot.send_message(message.chat.id, msg, reply_markup=btn)
 
+@bot.message_handler(commands=['order'])
+def order_info(message):
+    bot.send_message(message.chat.id, "📦 Щоб оформити замовлення, відкрийте /catalog і натисніть кнопку 'Замовити'.")
+
+# --- Inline кнопки ---
 @bot.callback_query_handler(func=lambda call: True)
 def handle_callback(call):
     if call.data.startswith("detail_"):
@@ -63,6 +75,7 @@ def handle_callback(call):
     elif call.data == "catalog":
         catalog(call.message)
 
+# --- Адміністративні команди ---
 @bot.message_handler(commands=['admin'])
 def admin(message):
     handle_admin(bot, message)
@@ -79,6 +92,7 @@ def remove_item(message):
 def orders(message):
     handle_orders(bot, message)
 
+# --- Відгуки ---
 @bot.message_handler(commands=['feedback'])
 def feedback(message):
     bot.send_message(message.chat.id, "✍️ Напишіть свій відгук:")
@@ -87,42 +101,40 @@ def feedback(message):
 def process_feedback(message):
     from config import ADMIN_IDS
     for admin_id in ADMIN_IDS:
-        bot.send_message(admin_id, f"📝 Новий відгук від @{message.from_user.username}:\n{message.text}")
+        bot.send_message(admin_id, f"📝 Новий відгук від @{message.from_user.username or 'невідомо'}:\n{message.text}")
     bot.send_message(message.chat.id, messages.FEEDBACK_THANKS)
 
+# --- Відповіді на довільні повідомлення ---
 @bot.message_handler(func=lambda message: True)
 def default(message):
     text = message.text.lower()
-    if "каталог" in text:
+    if "каталог" in text or "товари" in text:
         catalog(message)
-    elif "інформація" in text:
-        info(message)
-    elif "допомога" in text:
-        help_cmd(message)
-    elif "відгук" in text:
-        feedback(message)
+    elif "замовлення" in text:
+        order_info(message)
+    elif "привіт" in text or "доброго дня" in text:
+        bot.send_message(message.chat.id, "👋 Вітаю! Чим можу допомогти?")
+    elif "як зробити замовлення" in text:
+        bot.send_message(message.chat.id, "🔽 Просто відкрий /catalog і натисни '🛒 Замовити' під потрібним туром.")
     else:
         bot.send_message(message.chat.id, messages.UNKNOWN_COMMAND)
 
-# --- Webhook endpoint ---
+# --- Обробка запитів Telegram (Webhook) ---
 @app.route(f"/{API_TOKEN}", methods=["POST"])
 def webhook():
     json_str = request.get_data().decode("utf-8")
-    print("UPDATE:", json_str)
+    logging.debug(f"📨 UPDATE: {json_str}")
     update = telebot.types.Update.de_json(json_str)
     bot.process_new_updates([update])
     return "ok", 200
 
-# --- Ping route ---
+# --- Ping маршрут ---
 @app.route("/", methods=["GET"])
 def index():
     return "Tours de Ukraine bot is running!", 200
 
-# --- Webhook setter ---
+# --- Встановлення Webhook ---
 if __name__ == "__main__":
-    import logging
-    logging.basicConfig(level=logging.DEBUG)
-
     bot.remove_webhook()
     webhook_url = f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME')}/{API_TOKEN}"
     print("🔗 Setting webhook:", webhook_url)

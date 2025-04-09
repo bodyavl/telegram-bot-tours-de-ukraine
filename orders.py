@@ -10,6 +10,5 @@ def handle_order(bot, message, user, item_id):
     user_info = f"\n👤 Користувач: {user.first_name} (@{user.username or 'немає'})\n🆔 ID: {user.id}"
     order_msg = f"🛒 НОВЕ ЗАМОВЛЕННЯ:\n{item['name']} - {item['price']}₴{user_info}"
     bot.send_message(message.chat.id, "✅ Ваше замовлення прийнято! Адміністратор зв'яжеться з вами найближчим часом.")
-
     for admin_id in ADMIN_IDS:
         bot.send_message(admin_id, order_msg)
